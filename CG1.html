@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+  <head>
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.4.1/jquery.min.js"></script>
+    <script lang="javascript" src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.15.4/xlsx.full.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@2.8.0"></script>
+
+  </head>
+  <body>
+    <div>
+      <h1 id='instructions'>Upload an excel file</h1>
+      <input type="file" id="fileUploader" name="fileUploader" accept=".xls, .xlsx"/>
+    </div>
+    <div id="chartDiv">
+      <canvas id="chartOut"></canvas>
+    </div>
+
+
+
+
+    <script>
+      
+    $(document).ready(function(){
+      $(document).ready(function(){
+        $("#fileUploader").change(function(evt){
+          var selectedFile = evt.target.files[0];
+          var reader = new FileReader();
+          reader.onload = function(event) {
+            var data = event.target.result;
+            var workbook = XLSX.read(data, {
+                type: 'binary'
+            });
+            workbook.SheetNames.forEach(function(sheetName) {
+              
+                var xlObject = XLSX.utils.sheet_to_row_object_array(workbook.Sheets[sheetName]);
+                var jsonObject = JSON.parse(JSON.stringify(xlObject[0]));
+                var xVals = Object.keys(jsonObject);
+                var y1 = Object.values(jsonObject);
+                console.log(xVals);
+                console.log(y1);
+                buildChart(xVals, y1);
+              })
+          };
+
+          reader.onerror = function(event) {
+            console.error("File could not be read! Code " + event.target.error.code);
+          };
+
+          reader.readAsBinaryString(selectedFile);
+        });
+      });
+
+      function buildChart(xVals, y1) {
+        var chartBuildData = {
+              "type":"bar",
+              "data": {
+                "labels": xVals,
+                "datasets":[{
+                  "label": "City Rankings",
+                  "data": y1,
+                  "fill": false,
+                  "borderColor":"rgb(75,192,192)",
+                  "lineTension":0.1
+                }]
+              },
+              "options":{
+                scales: {
+                  yAxes: [{
+                    ticks: {
+                      beginAtZero: true
+                    }
+                  }]
+                }
+              }
+        }
+        new Chart(document.getElementById("chartOut"), chartBuildData);
+        $('#instructions').html('Your chart is loaded');
+      }; 
+    });
+    
+    </script>
+  </body>
+</html>
