@@ -4,59 +4,143 @@
     <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.4.1/jquery.min.js"></script>
     <script lang="javascript" src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.15.4/xlsx.full.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js@2.8.0"></script>
+    <script src="https://code.highcharts.com/highcharts.js"></script>
+    <script src="https://code.highcharts.com/modules/series-label.js"></script>
+    <script src="https://code.highcharts.com/modules/exporting.js"></script>
+    <script src="https://code.highcharts.com/modules/export-data.js"></script>
+    <script src="https://code.highcharts.com/modules/accessibility.js"></script>
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.4.1/css/bootstrap.min.css" integrity="sha384-Vkoo8x4CGsO3+Hhxv8T/Q5PaXtkKtu6ug5TOeNV6gBiFeWPGFN9MuhOf23Q9Ifjh" crossorigin="anonymous">
+    <script src="https://code.jquery.com/jquery-3.4.1.slim.min.js" integrity="sha384-J6qa4849blE2+poT4WnyKhv5vZF5SrPo0iEjwBvKU7imGFAV0wwj1yYfoRSJoZ+n" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/popper.js@1.16.0/dist/umd/popper.min.js" integrity="sha384-Q6E9RHvbIyZFJoft+2mJbHaEWldlvI9IOYy5n3zV9zzTtmI3UksdQRVvoxMfooAo" crossorigin="anonymous"></script>
+    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.4.1/js/bootstrap.min.js" integrity="sha384-wfSDF2E50Y2D1uUdj0O3uMBJnjuUD4Ih7YwaYd1iqfktj0Uod8GCExl3Og8ifwB6" crossorigin="anonymous"></script>
 
+
+  <style media="screen">
+    #uploadMenu {
+      background-color: #284b63;
+      color: white;
+      font-family: arial;
+    }
+
+    #fileUploadBtn {
+      font-size: 100px;
+      position: absolute;
+      left: 0;
+      top: 0;
+      opacity: 0;
+    }
+
+    #fileUploadBtnTrigger {
+      background-color: #209ee3;
+    }
+
+    .uploadBtnWrapper {
+      position: relative;
+      overflow: hidden;
+      display: inline-block;
+    }
+
+    #buildBtn { 
+      background-color: #cccccc;
+      color: black;
+    }
+
+    #chartTypeSelect {
+      border-radius: 4px;
+    }
+  </style>
   </head>
   <body>
-    <div>
-      <h1 id='instructions'>Upload an excel file</h1>
-      <input type="file" id="fileUploader" name="fileUploader" accept=".xls, .xlsx"/>
+    <div id='uploadMenu' class='container mt-3 p-3'>
+      <h1 id='instructions'>Upload an Excel file and build a chart</h1>
+
+      <form id="uploadForm" class='form-inline mt-3'>
+        <div class='uploadBtnWrapper mr-3'>
+          <button id='fileUploadBtnTrigger' type='button' class='btn btn-primary'>Choose File</button>
+          <input type="file" id="fileUploadBtn" name="fileUploadBtn" accept=".xls, .xlsx"/>
+        </div>
+
+        <input type="text" id='chartTitleInput' class='form-control mr-3' placeholder='Enter Chart Title'>
+
+        <select class="form-control mr-3" id="chartTypeSelect">
+          <option value="Chart Type">Chart Type</option>
+          <option value="Bar">Bar</option>
+          <option value="Line">Line</option>
+        </select>
+
+        <input type="button" id='buildBtn' class='btn btn-secondary mr-3' value='Build'>
+      </form>
     </div>
-    <div id="chartDiv">
-      <canvas id="chartOut"></canvas>
+
+    <div class='container'>
+      <div id="chartDiv" style='display: none'>
+        <canvas id="chartJsContainer"></canvas>
+      </div>
+      <div class='highchartsDiv'>
+        <div id='highchartsContainer' style='display: none'></div>
+      </div>
     </div>
+    
 
 
 
 
     <script>
-      
-    $(document).ready(function(){
-      $(document).ready(function(){
-        $("#fileUploader").change(function(evt){
-          var selectedFile = evt.target.files[0];
-          var reader = new FileReader();
-          reader.onload = function(event) {
+      $('#chartTypeSelect').change(function() {
+        if($(this).val() == 'Bar') {
+          $('#chartDiv').show();
+          $('#highchartsContainer').hide();
+        } else {
+          $('#highchartsContainer').show();
+          $('#chartDiv').hide();
+        }
+      });
+
+
+        $("#buildBtn").click(function(evt){
+          if ($('#fileUploadBtn').val()) {
+            var chartTitle = '';
+            if($('#chartTitleInput').val() === '') {
+              chartTitle = 'No Title Given';
+            }else {
+              chartTitle = $('#chartTitleInput').val();
+            }
+            var reader = new FileReader();
+            reader.onload = function(event) {
             var data = event.target.result;
             var workbook = XLSX.read(data, {
                 type: 'binary'
             });
             workbook.SheetNames.forEach(function(sheetName) {
-              
                 var xlObject = XLSX.utils.sheet_to_row_object_array(workbook.Sheets[sheetName]);
                 var jsonObject = JSON.parse(JSON.stringify(xlObject[0]));
                 var xVals = Object.keys(jsonObject);
                 var y1 = Object.values(jsonObject);
+                console.log(chartTitle);
                 console.log(xVals);
                 console.log(y1);
-                buildChart(xVals, y1);
-              })
+                buildChartjs(chartTitle, xVals, y1);
+                buildHighchart(chartTitle, xVals, y1);
+              });
           };
-
           reader.onerror = function(event) {
             console.error("File could not be read! Code " + event.target.error.code);
           };
-
-          reader.readAsBinaryString(selectedFile);
+          reader.readAsBinaryString($('#fileUploadBtn')[0].files[0]);
+          document.getElementById('uploadForm').reset();
+          } else {
+            alert('No File Loaded');
+          }
+          
         });
-      });
 
-      function buildChart(xVals, y1) {
-        var chartBuildData = {
+      function buildChartjs(chartTitle, xVals, y1) {
+        var chartConfig = {
               "type":"bar",
               "data": {
                 "labels": xVals,
                 "datasets":[{
-                  "label": "City Rankings",
+                  "label": 'Cities',
                   "data": y1,
                   "fill": false,
                   "borderColor":"rgb(75,192,192)",
@@ -64,6 +148,13 @@
                 }]
               },
               "options":{
+                title: {
+                  display: true,
+                  text: chartTitle,
+                  fontFamily: 'Lucida Sans Unicode',
+                  fontize: 20,
+                  fontStyle: ''
+                },
                 scales: {
                   yAxes: [{
                     ticks: {
@@ -73,10 +164,54 @@
                 }
               }
         }
-        new Chart(document.getElementById("chartOut"), chartBuildData);
-        $('#instructions').html('Your chart is loaded');
-      }; 
-    });
+        new Chart(document.getElementById("chartJsContainer"), chartConfig);
+      };
+
+      function buildHighchart(chartTitle, xVals, y1) {
+        Highcharts.chart('highchartsContainer', {
+          title: {
+            text: chartTitle
+          },
+          yAxis: {
+            title: {
+              text: ''
+            }
+          },
+          xAxis: {
+            categories: xVals
+          },
+          legend: {
+            layout: 'vertical',
+            align: 'right',
+            verticalAlign: 'middle'
+          },
+          plotOption: {
+            series: {
+              label: {
+                connectionAllowed: false
+              }
+            }
+          },
+          series: [{
+            name: '',
+            data: y1
+          }],
+          responsive: {
+            rules: [{
+              condition: {
+                maxWidth: 500
+              },
+              chartOptions: {
+                legend: {
+                  layout: 'horizontal',
+                  align: 'center',
+                  verticalAlign: 'bottom'
+                }
+              }
+            }]
+          }
+        });
+      };
     
     </script>
   </body>
